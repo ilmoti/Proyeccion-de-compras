@@ -257,18 +257,13 @@ $quedan = $total_productos - $siguiente_offset;
 
 if ($quedan > 0) {
     echo "⚠️ QUEDAN {$quedan} PRODUCTOS POR PROCESAR\n\n";
-    echo "Redirigiendo al siguiente lote...\n";
 
-    echo "</pre>"; // Cerrar pre siempre antes del script
+    if ($offset > 0) echo "</pre>";
 
-    ?>
-    <script>
-        setTimeout(function() {
-            window.location.href = '?offset=<?php echo $siguiente_offset; ?>';
-        }, 2000);
-    </script>
-    <p><a href="?offset=<?php echo $siguiente_offset; ?>">O haz click aquí para continuar manualmente</a></p>
-    <?php
+    // Usar echo para todo el HTML
+    echo "<script>setTimeout(function() { window.location.href = '?offset={$siguiente_offset}'; }, 2000);</script>";
+    echo "<p><strong>Redirigiendo en 2 segundos...</strong></p>";
+    echo "<p><a href='?offset={$siguiente_offset}' style='font-size: 18px; padding: 10px 20px; background: #0073aa; color: white; text-decoration: none; display: inline-block; border-radius: 5px;'>O HAZ CLICK AQUÍ PARA CONTINUAR</a></p>";
 } else {
     echo "========== ✅ TODOS LOS PRODUCTOS PROCESADOS ==========\n\n";
 
