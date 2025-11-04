@@ -11,27 +11,33 @@ if (!defined('ABSPATH')) {
 class FC_Stock_Monitor {
     
     public function __construct() {
-        // Hook directo cuando se guarda cualquier meta de producto
+        // PRIORIDAD 1: Hook directo cuando se guarda cualquier meta de producto
+        // Este se ejecuta SIEMPRE, incluso con actualizaciones externas
         add_action('updated_post_meta', array($this, 'check_stock_meta_change'), 10, 4);
-        
-        // NUEVO: Hook cuando se guarda CUALQUIER producto
+        add_action('added_post_meta', array($this, 'check_stock_meta_change'), 10, 4);
+
+        // PRIORIDAD 2: Hook cuando se guarda CUALQUIER producto
         add_action('save_post_product', array($this, 'force_check_stock'), 10, 3);
         add_action('save_post_product_variation', array($this, 'force_check_stock'), 10, 3);
-        
-        // NUEVO: Hook en el proceso de actualización de stock de WooCommerce
+
+        // PRIORIDAD 3: Hook en el proceso de actualización de stock de WooCommerce
         add_action('woocommerce_update_product_stock', array($this, 'on_stock_update'), 10, 4);
-        
+        add_action('woocommerce_product_set_stock', array($this, 'on_product_set_stock'), 10, 1);
+
         // Hook cuando se completa una orden
         add_action('woocommerce_order_status_completed', array($this, 'check_order_stock'));
         add_action('woocommerce_order_status_processing', array($this, 'check_order_stock'));
-        
-        // Agregar cron para verificación diaria
+
+        // Agregar cron para verificación diaria (respaldo)
         add_action('fc_daily_stock_check', array($this, 'daily_stock_check'));
-        
+
         // Programar el cron si no existe
         if (!wp_next_scheduled('fc_daily_stock_check')) {
             wp_schedule_event(time(), 'daily', 'fc_daily_stock_check');
         }
+
+        // Log de inicio
+        error_log('FC Stock Monitor: Iniciado con hooks reforzados para actualizaciones externas');
     }
     
     // Detectar cambios en el meta _stock
@@ -40,49 +46,91 @@ class FC_Stock_Monitor {
         if ($meta_key !== '_stock') {
             return;
         }
-        
+
         // Verificar que sea un producto
         $post_type = get_post_type($post_id);
         if ($post_type !== 'product' && $post_type !== 'product_variation') {
             return;
         }
-        
+
         global $wpdb;
         $table_stockouts = $wpdb->prefix . 'fc_stockout_periods';
-        
+
         // Obtener SKU
         $sku = get_post_meta($post_id, '_alg_ean', true);
         if (empty($sku)) {
             $sku = get_post_meta($post_id, '_sku', true);
         }
-        
-        $stock = intval($meta_value);
-        
-        // Si hay stock, cerrar período
-        if ($stock > 0) {
+
+        // Obtener stock anterior para detectar transiciones
+        $stock_anterior = $wpdb->get_var($wpdb->prepare(
+            "SELECT meta_value FROM {$wpdb->postmeta}
+            WHERE post_id = %d AND meta_key = '_stock'
+            ORDER BY meta_id DESC LIMIT 1",
+            $post_id
+        ));
+
+        $stock = floatval($meta_value);
+        $stock_prev = floatval($stock_anterior);
+
+        // Log de cambio detectado
+        error_log("FC Monitor: Cambio stock detectado - Producto: $post_id | SKU: $sku | Stock anterior: $stock_prev | Stock nuevo: $stock");
+
+        // TRANSICIÓN: De sin stock a con stock
+        if ($stock > 0 && $stock_prev <= 0) {
             $result = $wpdb->query($wpdb->prepare(
-                "UPDATE $table_stockouts 
+                "UPDATE $table_stockouts
                 SET end_date = NOW(), days_out = DATEDIFF(NOW(), start_date)
                 WHERE product_id = %d AND end_date IS NULL",
                 $post_id
             ));
+
+            if ($result) {
+                error_log("FC Monitor: ✅ CERRADO período de stockout para producto $post_id (SKU: $sku) - Stock: $stock");
+            }
         }
-        // Si no hay stock, abrir período
-        else {
+        // TRANSICIÓN: De con stock a sin stock
+        elseif ($stock <= 0 && $stock_prev > 0) {
             $existe = $wpdb->get_var($wpdb->prepare(
                 "SELECT id FROM $table_stockouts WHERE product_id = %d AND end_date IS NULL",
                 $post_id
             ));
-            
+
             if (!$existe) {
                 $wpdb->insert(
                     $table_stockouts,
                     array(
                         'product_id' => $post_id,
                         'sku' => $sku,
-                        'start_date' => current_time('mysql')
-                    )
+                        'start_date' => current_time('mysql'),
+                        'days_out' => 0
+                    ),
+                    array('%d', '%s', '%s', '%d')
                 );
+                error_log("FC Monitor: 🔴 ABIERTO período de stockout para producto $post_id (SKU: $sku)");
+            }
+        }
+        // Si sigue sin stock
+        elseif ($stock <= 0) {
+            // Verificar si existe período abierto
+            $existe = $wpdb->get_var($wpdb->prepare(
+                "SELECT id FROM $table_stockouts WHERE product_id = %d AND end_date IS NULL",
+                $post_id
+            ));
+
+            if (!$existe) {
+                // No existe período abierto pero está sin stock - crear uno
+                $wpdb->insert(
+                    $table_stockouts,
+                    array(
+                        'product_id' => $post_id,
+                        'sku' => $sku,
+                        'start_date' => current_time('mysql'),
+                        'days_out' => 0
+                    ),
+                    array('%d', '%s', '%s', '%d')
+                );
+                error_log("FC Monitor: 🔴 CREADO período de stockout para producto $post_id (SKU: $sku) - sin stock sin período");
             }
         }
     }
@@ -275,48 +323,103 @@ public function force_check_stock($post_id, $post, $update) {
     // Hook directo de WooCommerce para cambios de stock
     public function on_stock_update($product, $stock_quantity, $operation, $original_stock) {
         global $wpdb;
-        
+
         $product_id = $product->get_id();
         $sku = $product->get_sku();
-        
+
         if (empty($sku)) {
             $sku = get_post_meta($product_id, '_alg_ean', true);
         }
-        
+
         $table_stockouts = $wpdb->prefix . 'fc_stockout_periods';
-        
+
+        error_log("FC Monitor (woocommerce_update_product_stock): Producto $product_id | SKU: $sku | Stock: $original_stock → $stock_quantity | Op: $operation");
+
         // Si el stock nuevo es mayor a 0 y el original era 0 o menos
         if ($stock_quantity > 0 && $original_stock <= 0) {
             // CERRAR período
             $result = $wpdb->query($wpdb->prepare(
-                "UPDATE $table_stockouts 
+                "UPDATE $table_stockouts
                 SET end_date = NOW(), days_out = DATEDIFF(NOW(), start_date)
                 WHERE product_id = %d AND end_date IS NULL",
                 $product_id
             ));
-            
+
             if ($result) {
-                error_log("FC Monitor AUTO: Cerrado período para producto $product_id - Stock: $stock_quantity");
+                error_log("FC Monitor: ✅ CERRADO período para producto $product_id (SKU: $sku) - Stock: $stock_quantity");
             }
         }
         // Si el stock nuevo es 0 y antes tenía stock
         elseif ($stock_quantity <= 0 && $original_stock > 0) {
-            // ABRIR perodo
+            // ABRIR período
             $existe = $wpdb->get_var($wpdb->prepare(
                 "SELECT id FROM $table_stockouts WHERE product_id = %d AND end_date IS NULL",
                 $product_id
             ));
-            
+
             if (!$existe) {
                 $wpdb->insert(
                     $table_stockouts,
                     array(
                         'product_id' => $product_id,
                         'sku' => $sku,
-                        'start_date' => current_time('mysql')
-                    )
+                        'start_date' => current_time('mysql'),
+                        'days_out' => 0
+                    ),
+                    array('%d', '%s', '%s', '%d')
                 );
-                error_log("FC Monitor AUTO: Abierto período para producto $product_id");
+                error_log("FC Monitor: 🔴 ABIERTO período para producto $product_id (SKU: $sku)");
+            }
+        }
+    }
+
+    // Nuevo hook para woocommerce_product_set_stock
+    public function on_product_set_stock($product) {
+        $product_id = $product->get_id();
+        $stock = $product->get_stock_quantity();
+        $sku = $product->get_sku();
+
+        if (empty($sku)) {
+            $sku = get_post_meta($product_id, '_alg_ean', true);
+        }
+
+        error_log("FC Monitor (woocommerce_product_set_stock): Producto $product_id | SKU: $sku | Stock: $stock");
+
+        global $wpdb;
+        $table_stockouts = $wpdb->prefix . 'fc_stockout_periods';
+
+        // Si hay stock, cerrar período abierto
+        if ($stock > 0) {
+            $result = $wpdb->query($wpdb->prepare(
+                "UPDATE $table_stockouts
+                SET end_date = NOW(), days_out = DATEDIFF(NOW(), start_date)
+                WHERE product_id = %d AND end_date IS NULL",
+                $product_id
+            ));
+
+            if ($result) {
+                error_log("FC Monitor: ✅ CERRADO período para producto $product_id (SKU: $sku) via set_stock");
+            }
+        }
+        // Si no hay stock, abrir período
+        elseif ($stock <= 0) {
+            $existe = $wpdb->get_var($wpdb->prepare(
+                "SELECT id FROM $table_stockouts WHERE product_id = %d AND end_date IS NULL",
+                $product_id
+            ));
+
+            if (!$existe) {
+                $wpdb->insert(
+                    $table_stockouts,
+                    array(
+                        'product_id' => $product_id,
+                        'sku' => $sku,
+                        'start_date' => current_time('mysql'),
+                        'days_out' => 0
+                    ),
+                    array('%d', '%s', '%s', '%d')
+                );
+                error_log("FC Monitor: 🔴 ABIERTO período para producto $product_id (SKU: $sku) via set_stock");
             }
         }
     }
