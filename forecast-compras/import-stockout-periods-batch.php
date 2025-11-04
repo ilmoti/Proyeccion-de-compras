@@ -52,7 +52,7 @@ if (!file_exists($file_productos)) {
 }
 
 // 1. LEER MAPEO DE PRODUCTOS -> CÓDIGOS (solo primera vez)
-$cache_file = __DIR__ . '/productos_map_cache.json';
+$cache_file = ABSPATH . 'productos_map_cache.json';
 
 if ($offset == 0 || !file_exists($cache_file)) {
     echo "1. Leyendo mapeo de productos...\n";
@@ -79,10 +79,39 @@ if ($offset == 0 || !file_exists($cache_file)) {
     }
 
     // Guardar en cache
-    file_put_contents($cache_file, json_encode($productos_map));
+    file_put_contents($cache_file, json_encode($productos_map, JSON_UNESCAPED_UNICODE));
     echo "   ✅ " . count($productos_map) . " productos mapeados\n\n";
 } else {
     $productos_map = json_decode(file_get_contents($cache_file), true);
+
+    // Validar que el cache es válido
+    if (!is_array($productos_map)) {
+        echo "   ⚠️ Cache corrupto, regenerando...\n";
+        $productos_map = array();
+
+        if (($handle = fopen($file_productos, 'r')) !== false) {
+            $is_first = true;
+            while (($data = fgetcsv($handle, 1000, ';')) !== false) {
+                if ($is_first) {
+                    $is_first = false;
+                    continue;
+                }
+
+                if (count($data) >= 2) {
+                    $nombre = trim($data[0]);
+                    $codigo = trim($data[1]);
+
+                    if (!empty($nombre) && !empty($codigo)) {
+                        $productos_map[$nombre] = $codigo;
+                    }
+                }
+            }
+            fclose($handle);
+        }
+
+        file_put_contents($cache_file, json_encode($productos_map, JSON_UNESCAPED_UNICODE));
+    }
+
     echo "   ✅ Usando cache: " . count($productos_map) . " productos\n\n";
 }
 
