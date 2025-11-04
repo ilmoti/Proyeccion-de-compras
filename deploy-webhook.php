@@ -1,22 +1,19 @@
 <?php
 /**
- * Auto-Deploy Script para Forecast de Compras
- * Este script se ejecuta cuando GitHub envía un webhook
+ * Auto-Deploy Script para Forecast de Compras v2
+ * Maneja correctamente la estructura del repositorio
  */
 
-// Token de seguridad (cámbialo por uno seguro)
+// Token de seguridad
 define('DEPLOY_TOKEN', '6f59d1e63f55b18b682a876d1dc17d1b780216a7102c98e63761d747d9762dd9');
-
-// Log file
 define('DEPLOY_LOG', __DIR__ . '/deploy.log');
 
-// Función para escribir en el log
 function deploy_log($message) {
     $timestamp = date('Y-m-d H:i:s');
     file_put_contents(DEPLOY_LOG, "[{$timestamp}] {$message}\n", FILE_APPEND);
 }
 
-// Verificar token de seguridad
+// Verificar token
 $token = $_GET['token'] ?? '';
 if ($token !== DEPLOY_TOKEN) {
     http_response_code(403);
@@ -26,7 +23,7 @@ if ($token !== DEPLOY_TOKEN) {
 
 deploy_log('=== INICIO DEPLOY ===');
 
-// Verificar que es un evento push de GitHub
+// Verificar evento
 $payload = file_get_contents('php://input');
 $event = $_SERVER['HTTP_X_GITHUB_EVENT'] ?? '';
 
@@ -37,13 +34,12 @@ if ($event !== 'push') {
     exit;
 }
 
-// Parsear el payload
+// Parsear payload
 $data = json_decode($payload, true);
 $branch = str_replace('refs/heads/', '', $data['ref'] ?? '');
 
 deploy_log("Push recibido en branch: {$branch}");
 
-// Solo hacer deploy en el branch main
 if ($branch !== 'main') {
     deploy_log("Branch ignorado: {$branch}");
     http_response_code(200);
@@ -61,11 +57,10 @@ if (!is_dir($plugin_dir)) {
     exit;
 }
 
-// Cambiar al directorio del plugin
 chdir($plugin_dir);
 deploy_log("Directorio de trabajo: " . getcwd());
 
-// Ejecutar git pull
+// Hacer git pull
 $commands = [
     'git fetch origin main 2>&1',
     'git reset --hard origin/main 2>&1',
@@ -89,7 +84,53 @@ foreach ($commands as $cmd) {
 
     if ($return_code !== 0) {
         $success = false;
-        break;
+    }
+
+    $cmd_output = [];
+}
+
+// NUEVO: Si se creó carpeta duplicada, mover archivos
+$duplicate_dir = $plugin_dir . '/forecast-compras';
+if (is_dir($duplicate_dir)) {
+    deploy_log("Detectada carpeta duplicada, moviendo archivos...");
+
+    // Mover archivos de la carpeta interna a la raíz
+    $files = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($duplicate_dir, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST
+    );
+
+    foreach ($files as $file) {
+        $target_path = $plugin_dir . '/' . substr($file->getPathname(), strlen($duplicate_dir) + 1);
+
+        if ($file->isDir()) {
+            if (!is_dir($target_path)) {
+                mkdir($target_path, 0755, true);
+            }
+        } else {
+            $target_dir = dirname($target_path);
+            if (!is_dir($target_dir)) {
+                mkdir($target_dir, 0755, true);
+            }
+            copy($file->getPathname(), $target_path);
+        }
+    }
+
+    // Eliminar carpeta duplicada
+    function deleteDir($dir) {
+        if (!file_exists($dir)) return true;
+        if (!is_dir($dir)) return unlink($dir);
+        foreach (scandir($dir) as $item) {
+            if ($item == '.' || $item == '..') continue;
+            if (!deleteDir($dir . DIRECTORY_SEPARATOR . $item)) return false;
+        }
+        return rmdir($dir);
+    }
+
+    if (deleteDir($duplicate_dir)) {
+        deploy_log("✅ Carpeta duplicada eliminada y archivos movidos");
+    } else {
+        deploy_log("⚠️ No se pudo eliminar carpeta duplicada completamente");
     }
 }
 
