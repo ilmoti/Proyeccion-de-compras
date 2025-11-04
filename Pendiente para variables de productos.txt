@@ -1,0 +1,40 @@
+✅ PERFECTO - RESUMEN FINAL ANTES DE CODIFICAR
+📋 ENTENDIMIENTO CONFIRMADO:
+Productos Variables:
+
+El PADRE tiene: Categorías, Etiquetas, Precio base
+Las VARIACIONES tienen: SKU propio, Stock propio, Ventas propias
+
+🎯 CAMBIOS A IMPLEMENTAR:
+
+En los cálculos de alertas:
+
+Al encontrar un producto variable → buscar todas sus variaciones
+Procesar cada variación independientemente
+Usar el SKU de cada variación (_alg_ean)
+
+
+En el Excel se verá:
+SKU: 6941590210773 | Destornillador RL-726 - (1.5 phillips) | Qty: 50
+SKU: 6941590210735 | Destornillador RL-726 - (0.8 pentalobe) | Qty: 30
+SKU: 6941590210766 | Destornillador RL-726 - (0.6 triwing) | Qty: 45
+
+Para el nombre compuesto:
+
+Tomar el nombre del producto padre
+Agregar el atributo de la variación entre paréntesis
+
+
+Los filtros funcionarán porque:
+
+Las categorías/etiquetas están en el padre
+Al buscar por categoría encontrará el padre
+Luego procesará todas sus variaciones
+
+
+
+🔧 ARCHIVOS A MODIFICAR:
+
+class-fc-weight-monitor.php - Para incluir variaciones en el cálculo
+class-fc-weight-alerts.php - Para mostrar variaciones en la gestión
+class-fc-forecast.php - Para la proyección base (si quieres consistencia)

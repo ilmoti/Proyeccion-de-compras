@@ -1,0 +1,112 @@
+RESUMEN: Sistema de Alertas de Peso/CBM para WooCommerce
+Arquitectura del Sistema
+El sistema consta de 4 componentes principales:
+
+class-fc-processor.php - Motor central de procesamiento
+class-fc-weight-monitor.php - Actualización de valores en el monitor
+class-fc-weight-export.php - Exportación a CSV y envío por email
+class-fc-weight-alerts.php - Interfaz de usuario y JavaScript
+
+Cómo Funciona el Processor
+1. Pre-carga de Datos (preload_data())
+Al iniciar, carga en memoria todos los datos necesarios:
+
+Stock en tránsito: Productos con órdenes pendientes
+Ventas históricas: Tanto de productos simples como variaciones
+Días sin stock: Períodos donde productos estuvieron sin inventario
+Configuración de múltiplos: Cantidades mínimas por categoría
+
+IMPORTANTE: La query de ventas debe usar CASE/WHEN para priorizar variation_id sobre product_id:
+sqlCASE 
+    WHEN variation_id.meta_value IS NOT NULL 
+        AND variation_id.meta_value != '' 
+        AND variation_id.meta_value != '0' 
+    THEN variation_id.meta_value 
+    ELSE product_id.meta_value 
+END as product_id
+2. Procesamiento por Lotes (process_batch())
+
+Procesa productos en grupos de 50 (configurable)
+Expande productos variables: Cuando encuentra un producto variable, busca y procesa sus variaciones
+Mantiene control de duplicados usando transients
+Calcula para cada producto:
+
+Ventas promedio diarias (considerando días sin stock)
+Stock necesario para X meses
+Aplica múltiplos por categoría
+
+
+
+3. Búsqueda de Productos (build_base_query())
+La query incluye:
+
+Productos simples CON SKU
+Productos variables (aunque no tengan SKU)
+Variaciones CON SKU
+Aplica filtros de categorías, tags incluidos y excluidos
+
+Flujo del Monitor
+
+Usuario hace clic en "Actualizar"
+JavaScript llama a fc_update_alert_fast_start
+Pre-carga datos y devuelve total de productos
+Procesa en batches llamando a fc_update_alert_fast_batch
+Actualiza progreso en tiempo real
+Guarda valor final con fc_update_alert_fast_finish
+
+Flujo del Export
+
+Usuario hace clic en "Exportar"
+JavaScript llama a fc_ajax_start_export
+Crea archivo CSV temporal con headers
+Procesa en batches llamando a fc_ajax_process_batch
+Escribe productos al CSV
+Finaliza con fc_ajax_finish_export:
+
+Agrega productos manuales
+Agrega totales
+Envía por email
+Programa limpieza del archivo
+
+
+
+Puntos Clave de la Implementación
+
+Control de Duplicados: Usa transients para mantener registro de SKUs procesados
+Manejo de Variaciones:
+
+La query inicial encuentra productos variables
+Durante el procesamiento, expande cada variable en sus variaciones
+Las ventas deben cargarse correctamente para ambos tipos
+
+
+Optimización:
+
+Pre-carga reduce queries a la BD
+Procesamiento por lotes evita timeouts
+Transients mantienen estado entre batches
+
+
+Cálculo de Pedidos:
+promedio_diario = ventas / (días_análisis - días_sin_stock)
+necesario = (promedio_diario × 30 × meses_compra) - stock_actual - stock_tránsito
+cantidad = aplicar_múltiplos(max(0, ceil(necesario)))
+
+
+Configuración de la Alerta
+
+analysis_days: Días hacia atrás para analizar ventas (ej: 90)
+purchase_months: Meses de inventario a mantener (ej: 3)
+type: "aereo" (usa peso) o "maritimo" (usa CBM)
+categories: IDs de categorías a incluir
+tags: Tags de productos a incluir
+excluded_tags: Tags de productos a excluir
+
+Archivos y sus Responsabilidades
+
+Processor: Lógica de negocio y cálculos
+Monitor: AJAX handlers para actualización en vivo
+Export: Generación de CSV y envío por email
+Alerts: UI, JavaScript, y gestión de alertas
+
+El sistema está diseñado para manejar catálogos grandes (10,000+ productos) de manera eficiente mediante procesamiento por lotes y pre-carga inteligente de datos.

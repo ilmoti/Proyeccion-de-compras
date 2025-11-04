@@ -1,0 +1,128 @@
+Ver Sku de las variables
+Ver como calcular lo que debemos pedir contemplando items con stock en 0
+Comparar precios históricos de los productos en sus diferentes ordenes.
+
+
+📋 RESUMEN FINAL DEL SISTEMA IMPLEMENTADO
+✅ FUNCIONES COMPLETADAS:
+1. Sistema de Proyección Base
+
+Calcula ventas promedio (configurable por alerta)
+Muestra stock actual y en camino
+Calcula cuánto comprar según proyección
+Filtros por categoría, búsqueda, período
+NUEVO: Múltiplos configurables por categoría
+
+2. Gestión de Órdenes
+
+Importar órdenes desde Excel
+Marcar órdenes como recibidas
+Eliminar órdenes pendientes
+Histórico de todas las órdenes
+NUEVO: Vinculación con alertas para finalización automática
+
+3. Sistema de Días Sin Stock
+
+Detecta automáticamente cuando producto llega a 0
+Registra período sin stock
+Cierra período cuando llega mercadería
+Ajusta cálculos considerando solo días con stock disponible
+Muestra "Ventas Perdidas" estimadas
+
+4. Sistema de Alertas por Peso/CBM ✅ COMPLETADO
+
+Alertas configurables por peso (aéreo) o CBM (marítimo)
+Monitoreo automático diario
+Filtros por categorías y etiquetas
+Gestión de productos manuales
+Generación de Excel por etiqueta/proveedor
+Email automático al alcanzar límite
+Estados: Activa → Ready → Ordenado → Finalizada
+Duplicación de alertas para nuevos ciclos
+Forzar envío sin alcanzar límite
+
+5. Configuración Global
+
+Múltiplos por categoría (con mínimo exacto)
+Opciones de calidad personalizables
+Interfaz con categorías colapsables y búsqueda
+
+📊 TABLAS DE BASE DE DATOS:
+sqlwp_fc_product_qualities     -- Calidades de productos
+wp_fc_orders_history        -- Órdenes importadas
+wp_fc_stockout_periods      -- Períodos sin stock
+wp_fc_sales_history         -- Historial de ventas (preparada, no usada)
+wp_fc_weight_alerts         -- Alertas de peso/CBM
+wp_fc_alert_manual_products -- Productos manuales de alertas
+wp_fc_alert_history         -- Historial de eventos de alertas
+🚧 FUNCIONES PENDIENTES:
+
+Dashboard Principal
+
+Vista unificada de todas las métricas
+Productos sin stock
+Valor en tránsito
+Gráficos de tendencias
+
+
+Filtros Avanzados en Proyección
+
+Por etiquetas
+Por estado (crítico/normal)
+Por proveedor
+
+
+Sistema de Notificaciones Adicionales
+
+Productos próximos a agotarse
+Resumen semanal
+Órdenes por llegar
+
+
+Punto de Reorden Automático
+
+Lead time por proveedor
+Stock de seguridad
+Cálculo inteligente
+
+
+Gestión de Proveedores
+
+Asignar proveedor por producto
+Comparar precios históricos
+Métricas por proveedor
+
+
+
+🔧 FLUJO ACTUAL DEL SISTEMA:
+1. PROYECCIÓN BASE
+   └─> Ver qué comprar
+   └─> Exportar pedido simple
+
+2. ALERTAS DE PESO/CBM
+   └─> Crear alerta con filtros
+   └─> Monitoreo automático
+   └─> Agregar productos manuales
+   └─> Generar pedido al límite
+   └─> Marcar ordenado
+   └─> Importar → Finaliza
+   └─> Duplicar para nuevo ciclo
+💡 CAMPOS Y HOOKS ACTIVOS:
+Campos Meta:
+
+_alg_ean: SKU principal
+_stock: Stock WooCommerce
+_sku: SKU alternativo
+_weight: Peso en kg
+_length, _width, _height: Dimensiones en cm
+
+Hooks:
+
+updated_post_meta: Detecta cambios de stock
+fc_check_weight_alerts: Cron diario para alertas
+
+🎯 PRÓXIMOS PASOS SUGERIDOS:
+
+Más inmediato: Dashboard principal con resumen
+Mayor impacto: Punto de reorden automático
+Más solicitado: Filtros avanzados

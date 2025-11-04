@@ -1,0 +1,121 @@
+ SISTEMA DE ALERTAS POR PESO/CBM - PLAN FINAL DEFINITIVO V3
+📋 RESUMEN EJECUTIVO:
+Sistema de alertas inteligentes que monitorea automáticamente cuándo es momento de hacer pedidos a proveedores, basándose en peso (envíos aéreos) o volumen CBM (envíos marítimos). Cada alerta tiene su propia configuración de períodos de análisis y proyección.
+🔄 CICLO DE VIDA COMPLETO:
+1. CREAR ALERTA → 2. MONITOREAR  3. LÍMITE ALCANZADO → 
+4. AGREGAR PRODUCTOS  5. REALIZAR PEDIDO → 6. IMPORTAR → 
+7. LIMPIAR Y CONTINUAR
+ ESTRUCTURA COMPLETA:
+1. Dashboard Principal
+┌──────────────────────────────────────┐
+│ 📊 RESUMEN DE ALERTAS                               │
+├───────────────────────────────────────┤
+│ 🟢 Samsung Areo      | 873/1000 kg   | 87.3%   📈 │
+│    30 días  3 meses                               
+│ 🟢 LG Marítimo        | 1.75/2 CBM    | 87.5%   📈 
+│    180 días → 6 meses                              │
+│  Xiaomi Aéreo       | LISTO         | [Gestionar]│
+    90 días → 2 meses                               │
+│  Apple Marítimo     | ORDENADO      | [Ver]     │
+│    60 días  3 meses                               │
+│                                    [+ Nueva Alerta] 
+└─────────────────────────────────────────┘
+2. Configuración de Alerta - ACTUALIZADA
+INFORMACIÓN BÁSICA:
+Nombre: [_________________________]
+Email: [_________________________]
+Tipo: ( ) Areo - Límite en KG
+      ( ) Marítimo - Límite en CBM
+Límite: [____] kg/CBM
+
+CONFIGURACIÓN DE CÁLCULO:
+┌─────────────────────────────┐
+│ Analizar ventas de: [30 ▼] días        │
+ (7, 15, 30, 60, 90, 180, 365)         │
+│                                         │
+ Comprar para: [3 ▼] meses              │
+│ (1, 2, 3, 4, 6, 12)                   │
+──────────────────────────────┘
+
+FILTROS:
+├ Categorías: □ Mdulos □ Placas □ Bateras
+─ Etiquetas: □ samsung  lg □ china □ original
+   (Sin etiquetas = Excel único)
+
+[Guardar Alerta]
+3. Página de Gestin (Límite Alcanzado)
+ALERTA: Samsung Aéreo - PEDIDO LISTO
+━━━━━━━━━━━━━━━━━━━━━━━
+Configuración: Ventas 30 días → Compra 3 meses
+Peso alcanzado: 1,023 kg / 1000 kg
+
+PRODUCTOS DEL SISTEMA (823 kg):
+├ SKU123 | Samsung A50 LCD    | 200 unid | 400 kg
+├ SKU456 | Samsung A70 Touch  | 150 unid | 300 kg
+└─ SKU789 | Samsung Flex       | 100 unid | 123 kg
+
+PRODUCTOS MANUALES (200 kg):
+ NEW001 | Samsung S24 LCD    | 50 unid  | 150 kg [️]
+└─ NEW002 | Samsung Batería    | 25 unid  | 50 kg  [️]
+
+ARCHIVOS A GENERAR:
+├─  pedido_samsung_2025-07-30.xlsx (600 kg)
+└ 📄 pedido_china_2025-07-30.xlsx (423 kg)
+
+[ Agregar Producto] [📧 Enviar Excel] [⚡ Forzar] [✅ Ordenado]
+🔧 FUNCIONALIDADES CLAVE ACTUALIZADAS:
+Cálculo Personalizado por Alerta:
+php// Cada alerta usa SU PROPIA configuración
+$ventas_periodo = fc_get_product_sales($product_id, $alerta->dias_analisis);
+$promedio_diario = $ventas_periodo / $alerta->dias_analisis;
+$necesario = ($promedio_diario * 30 * $alerta->meses_compra) - $stock - $transito;
+Generación de Excel:
+
+CON etiquetas: Un Excel por cada etiqueta seleccionada
+SIN etiquetas: Un único Excel con todos los productos
+
+Sin etiquetas  pedido_general_2025-07-30.xlsx
+Con etiquetas → pedido_samsung_2025-07-30.xlsx
+                pedido_china_2025-07-30.xlsx
+Ejemplos de Configuraciones:
+
+Productos de alta rotación:
+
+Analizar: 30 das / Comprar: 2 meses
+
+
+Productos estacionales:
+
+Analizar: 180 días / Comprar: 6 meses
+
+
+Productos nuevos:
+
+Analizar: 15 días / Comprar: 1 mes
+
+
+
+ TABLAS DE BASE DE DATOS - ACTUALIZADA:
+wp_fc_weight_alerts
+sqlid | name | email | type | categories | tags | limit_value | 
+current_value | analysis_days | purchase_months | status | 
+last_check | last_notification | last_order_date | 
+cycles_completed | created_at | updated_at
+💡 COMPORTAMIENTOS ESPECIALES:
+
+Flexibilidad total: Cada alerta es independiente con sus propios períodos
+Excel inteligente:
+
+Con etiquetas = mltiples archivos
+Sin etiquetas = archivo único consolidado
+
+
+Vista rápida: El dashboard muestra la configuración (30d→3m)
+Clculos precisos: Usa la configuración específica de cada alerta
+
+🚀 VENTAJAS DEL SISTEMA:
+
+Adaptable: Diferentes productos necesitan diferentes análisis
+Eficiente: No todos los productos se comportan igual
+Organizado: Separa automáticamente por proveedor (etiquetas)
+Flexible: Puede generar pedidos consolidados o separados

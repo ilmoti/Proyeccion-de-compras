@@ -1,0 +1,51 @@
+🎯 ¿Qué hace el sistema de días sin stock?
+1. Problema que resuelve:
+Imagina este escenario real:
+
+Producto ABC vendió 100 unidades en los últimos 60 días
+PERO estuvo SIN STOCK durante 30 de esos días
+El sistema normal diría: "Vendes 100/60 = 1.6 por día"
+Esto está MAL porque en realidad vendiste 100 en solo 30 días = 3.3 por día
+
+2. ¿Qué información te muestra?
+En tu tabla ahora ves:
+SKU | Producto | Stock | Ventas | Días Sin Stock | Ventas Perdidas | Promedio
+ABC | Samsung  |  10   |  100   |      30        |      ~100       |   3.3
+Columnas nuevas:
+
+Días Sin Stock: Cuántos días estuvo en cero (30 días en el ejemplo)
+Ventas Perdidas: Estimación de cuánto hubieras vendido si tuvieras stock (~100 unidades más)
+Promedio: Ahora usa el cálculo REAL (3.3 en vez de 1.6)
+
+3. ¿Cómo mejora tus pedidos?
+SIN el sistema:
+
+Proyección: 1.6 × 30 × 3 meses = 144 unidades
+Te quedarías sin stock a mitad del período
+
+CON el sistema:
+
+Proyección: 3.3 × 30 × 3 meses = 297 unidades
+Cantidad correcta basada en demanda real
+
+4. ¿Qué falta activar?
+Ahora mismo el sistema:
+
+✅ Calcula correctamente SI le dices los días sin stock
+❌ NO detecta automáticamente cuándo se agota el stock
+❌ NO registra el historial por sí solo
+
+Por eso necesitamos activar el monitor automático que:
+
+Detecte cuando un producto llega a stock 0
+Registre la fecha
+Cuando llegue mercadería, cierre el período
+Use esos datos para los cálculos
+
+💡 Ejemplo visual:
+Enero 1-15: Stock disponible → Vendiste 50 unidades
+Enero 16-31: SIN STOCK → 0 ventas (pero había demanda)
+Febrero 1-15: Llega mercadería → Vendiste 50 unidades
+
+Sistema normal: "Vendiste 100 en 45 días = 2.2/día"
+Tu sistema: "Vendiste 100 en 30 días reales = 3.3/día" ✅

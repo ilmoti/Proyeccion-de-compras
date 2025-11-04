@@ -1,0 +1,65 @@
+/* Estilos para el plugin Forecast Compras */
+
+.fc-filters {
+    background: #fff;
+    padding: 20px;
+    margin: 20px 0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.fc-filters form {
+    display: flex;
+    gap: 15px;
+    align-items: end;
+    flex-wrap: wrap;
+}
+
+.fc-filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.fc-results {
+    background: #fff;
+    padding: 20px;
+    margin: 20px 0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.fc-import-form {
+    background: #fff;
+    padding: 20px;
+    margin: 20px 0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.fc-import-help {
+    background: #f1f1f1;
+    padding: 20px;
+    margin: 20px 0;
+    border-radius: 5px;
+}
+
+.fc-import-help ul {
+    list-style: disc;
+    margin-left: 20px;
+}
+
+/* Alertas de stock bajo */
+.fc-stock-alert {
+    color: #d63638;
+    font-weight: bold;
+}
+
+.fc-stock-warning {
+    color: #f0b849;
+    font-weight: bold;
+}
+
+.fc-stock-ok {
+    color: #00a32a;
+}
