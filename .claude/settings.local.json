@@ -4,7 +4,9 @@
       "Bash(powershell -Command \"Rename-Item forecast-compras-temp forecast-compras\")",
       "Bash(dir /B)",
       "Bash(powershell -Command \"Move-Item forecast-compras/.gitignore ./\")",
-      "Bash(powershell -Command \"Move-Item .claude forecast-compras/\")"
+      "Bash(powershell -Command \"Move-Item .claude forecast-compras/\")",
+      "Bash(git commit:*)",
+      "Bash(dir /b \"c:\\Users\\PC\\Desarrollos Claude\\forecast-compras\")"
     ],
     "deny": [],
     "ask": []
