@@ -1,0 +1,233 @@
+<?php
+/**
+ * Importar períodos de stockout desde CSV con SKU incluido - VERSIÓN 2
+ * Formato: Producto;SKU;Fecha;Ingreso;Egreso;Precio Venta;Monto Venta;Stock
+ */
+
+require_once 'wp-load.php';
+global $wpdb;
+
+set_time_limit(120);
+ini_set('max_execution_time', 120);
+ini_set('memory_limit', '256M');
+
+// Obtener offset desde la URL
+$offset = isset($_GET['offset']) ? intval($_GET['offset']) : 0;
+$limit = 50; // Procesar 50 productos por vez
+
+// SIEMPRE usar HTML para que el JavaScript funcione
+header('Content-Type: text/html; charset=utf-8');
+echo "<pre style='font-family: monospace;'>";
+
+// Si es el primer lote, limpiar la tabla
+if ($offset == 0) {
+    echo "========== IMPORTAR PERÍODOS STOCKOUT V2 (CON SKU) ==========\n\n";
+    echo "⚠️ LIMPIANDO TABLA EXISTENTE...\n\n";
+
+    $table_stockouts = $wpdb->prefix . 'fc_stockout_periods';
+    $wpdb->query("TRUNCATE TABLE $table_stockouts");
+
+    echo "✅ Tabla limpiada\n\n";
+}
+
+echo "========== LOTE {$offset} - " . ($offset + $limit) . " ==========\n\n";
+
+// Buscar archivo CSV con SKU
+$file_movimientos = __DIR__ . '/Movimientos-con-SKU.csv';
+
+if (!file_exists($file_movimientos)) {
+    $file_movimientos = ABSPATH . 'Movimientos-con-SKU.csv';
+}
+
+if (!file_exists($file_movimientos)) {
+    die("❌ No se encuentra el archivo: {$file_movimientos}\n");
+}
+
+// Leer todos los productos del CSV
+echo "1. Leyendo productos del CSV...\n";
+$productos = array();
+$current_product = null;
+$current_sku = null;
+
+if (($handle = fopen($file_movimientos, 'r')) !== false) {
+    $is_first = true;
+
+    while (($data = fgetcsv($handle, 10000, ';')) !== false) {
+        if ($is_first) {
+            $is_first = false;
+            continue;
+        }
+
+        $nombre = trim($data[0]);
+        $sku = isset($data[1]) ? trim($data[1]) : '';
+        $fecha = isset($data[2]) ? trim($data[2]) : '';
+        $stock = isset($data[7]) ? str_replace(',', '.', trim($data[7])) : '0';
+
+        // Si cambia el SKU, es un producto diferente
+        if ($sku !== $current_sku && $current_product !== null) {
+            $productos[] = $current_product;
+            $current_product = null;
+        }
+
+        // Nueva cabecera de producto (sin fecha)
+        if (empty($fecha)) {
+            $current_product = array(
+                'nombre' => $nombre,
+                'sku' => $sku,
+                'movimientos' => array(
+                    array('fecha' => null, 'stock' => floatval($stock))
+                )
+            );
+            $current_sku = $sku;
+        } else {
+            // Movimiento
+            if ($current_product !== null) {
+                $current_product['movimientos'][] = array(
+                    'fecha' => $fecha,
+                    'stock' => floatval($stock)
+                );
+            }
+        }
+    }
+
+    // Agregar último producto
+    if ($current_product !== null) {
+        $productos[] = $current_product;
+    }
+
+    fclose($handle);
+}
+
+$total_productos = count($productos);
+echo "   ✅ {$total_productos} productos encontrados\n\n";
+
+// Procesar lote actual
+echo "2. Procesando lote (del {$offset} al " . min($offset + $limit, $total_productos) . ")...\n\n";
+
+$table_stockouts = $wpdb->prefix . 'fc_stockout_periods';
+$periodos_creados = 0;
+$productos_sin_sku = 0;
+$productos_sin_id = 0;
+
+$productos_lote = array_slice($productos, $offset, $limit);
+
+foreach ($productos_lote as $prod) {
+    $nombre = $prod['nombre'];
+    $sku = $prod['sku'];
+    $movimientos = $prod['movimientos'];
+
+    if (empty($sku)) {
+        $productos_sin_sku++;
+        echo "   ⏭️ Sin SKU: {$nombre}\n";
+        continue;
+    }
+
+    // Buscar product_id
+    $product_id = $wpdb->get_var($wpdb->prepare("
+        SELECT post_id
+        FROM {$wpdb->postmeta}
+        WHERE meta_key = '_alg_ean'
+        AND meta_value = %s
+        LIMIT 1
+    ", $sku));
+
+    if (!$product_id) {
+        $productos_sin_id++;
+        echo "   ⏭️ Sin ID en WP: {$nombre} (SKU: {$sku})\n";
+        continue;
+    }
+
+    // Procesar movimientos
+    $stockout_start = null;
+    $last_fecha = null;
+    $periodos_producto = 0;
+
+    foreach ($movimientos as $mov) {
+        $fecha = $mov['fecha'];
+        $stock = $mov['stock'];
+
+        if ($stock <= 0) {
+            // Inicia período de stockout
+            if ($stockout_start === null && $fecha !== null) {
+                $stockout_start = $fecha;
+            }
+        } else {
+            // Tiene stock - cerrar período si existe
+            if ($stockout_start !== null && $fecha !== null) {
+                $d1 = new DateTime($stockout_start);
+                $d2 = new DateTime($fecha);
+                $dias = $d1->diff($d2)->days;
+
+                $wpdb->insert(
+                    $table_stockouts,
+                    array(
+                        'product_id' => $product_id,
+                        'sku' => $sku,
+                        'start_date' => $stockout_start,
+                        'end_date' => $fecha,
+                        'days_out' => $dias
+                    ),
+                    array('%d', '%s', '%s', '%s', '%d')
+                );
+
+                $periodos_creados++;
+                $periodos_producto++;
+                $stockout_start = null;
+            }
+        }
+
+        if ($fecha !== null) {
+            $last_fecha = $fecha;
+        }
+    }
+
+    // Período abierto final (solo si actualmente está sin stock)
+    if ($stockout_start !== null && $last_fecha !== null) {
+        $d1 = new DateTime($stockout_start);
+        $d2 = new DateTime();
+        $dias = $d1->diff($d2)->days;
+
+        $wpdb->insert(
+            $table_stockouts,
+            array(
+                'product_id' => $product_id,
+                'sku' => $sku,
+                'start_date' => $stockout_start,
+                'end_date' => null,
+                'days_out' => $dias
+            ),
+            array('%d', '%s', '%s', '%s', '%d')
+        );
+
+        $periodos_creados++;
+        $periodos_producto++;
+    }
+
+    if ($periodos_producto > 0) {
+        echo "   ✅ {$nombre}: {$periodos_producto} períodos\n";
+    }
+}
+
+echo "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+echo "\n========== RESUMEN DEL LOTE ==========\n";
+echo "Períodos creados en este lote: {$periodos_creados}\n";
+echo "Productos sin SKU: {$productos_sin_sku}\n";
+echo "Productos sin ID: {$productos_sin_id}\n\n";
+
+$siguiente_offset = $offset + $limit;
+$quedan = $total_productos - $siguiente_offset;
+
+if ($quedan > 0) {
+    echo "⚠️ QUEDAN {$quedan} PRODUCTOS POR PROCESAR\n\n";
+    echo "</pre>";
+
+    echo "<script>setTimeout(function() { window.location.href = '?offset={$siguiente_offset}'; }, 1000);</script>";
+    echo "<p><strong>Redirigiendo automáticamente en 1 segundo...</strong></p>";
+    echo "<p><a href='?offset={$siguiente_offset}' style='font-size: 18px; padding: 10px 20px; background: #0073aa; color: white; text-decoration: none; display: inline-block; border-radius: 5px;'>O HAZ CLICK AQUÍ PARA CONTINUAR</a></p>";
+} else {
+    echo "========== ✅ TODOS LOS PRODUCTOS PROCESADOS ==========\n\n";
+    echo "⚠️ PRÓXIMO PASO:\n";
+    echo "Ve a WordPress → Forecast Dashboard → Configuración\n";
+    echo "Click en 'Actualizar Métricas'\n";
+    echo "</pre>";
+}
