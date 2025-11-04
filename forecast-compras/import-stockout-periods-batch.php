@@ -15,10 +15,12 @@ ini_set('memory_limit', '256M');
 $offset = isset($_GET['offset']) ? intval($_GET['offset']) : 0;
 $limit = 50; // Procesar 50 productos por vez
 
+// SIEMPRE usar HTML para que el JavaScript funcione
+header('Content-Type: text/html; charset=utf-8');
+echo "<pre style='font-family: monospace;'>";
+
 // Si es el primer lote, limpiar la tabla
 if ($offset == 0) {
-    header('Content-Type: text/plain; charset=utf-8');
-
     echo "========== IMPORTAR PERÍODOS DE STOCKOUT (VERSIÓN BATCH) ==========\n\n";
     echo "⚠️ LIMPIANDO TABLA EXISTENTE...\n\n";
 
@@ -26,9 +28,6 @@ if ($offset == 0) {
     $wpdb->query("TRUNCATE TABLE $table_stockouts");
 
     echo "✅ Tabla limpiada\n\n";
-} else {
-    header('Content-Type: text/html; charset=utf-8');
-    echo "<pre style='font-family: monospace;'>";
 }
 
 echo "========== LOTE {$offset} - " . ($offset + $limit) . " ==========\n\n";
@@ -257,12 +256,11 @@ $quedan = $total_productos - $siguiente_offset;
 
 if ($quedan > 0) {
     echo "⚠️ QUEDAN {$quedan} PRODUCTOS POR PROCESAR\n\n";
-
-    if ($offset > 0) echo "</pre>";
+    echo "</pre>"; // Cerrar pre antes del script
 
     // Usar echo para todo el HTML
-    echo "<script>setTimeout(function() { window.location.href = '?offset={$siguiente_offset}'; }, 2000);</script>";
-    echo "<p><strong>Redirigiendo en 2 segundos...</strong></p>";
+    echo "<script>setTimeout(function() { window.location.href = '?offset={$siguiente_offset}'; }, 1000);</script>";
+    echo "<p><strong>Redirigiendo automáticamente en 1 segundo...</strong></p>";
     echo "<p><a href='?offset={$siguiente_offset}' style='font-size: 18px; padding: 10px 20px; background: #0073aa; color: white; text-decoration: none; display: inline-block; border-radius: 5px;'>O HAZ CLICK AQUÍ PARA CONTINUAR</a></p>";
 } else {
     echo "========== ✅ TODOS LOS PRODUCTOS PROCESADOS ==========\n\n";
@@ -276,5 +274,5 @@ if ($quedan > 0) {
     echo "Ve a WordPress → Forecast Dashboard → Configuración\n";
     echo "Click en 'Actualizar Métricas'\n";
 
-    if ($offset > 0) echo "</pre>";
+    echo "</pre>";
 }
