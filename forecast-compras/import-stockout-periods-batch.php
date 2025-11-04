@@ -259,7 +259,7 @@ if ($quedan > 0) {
     echo "⚠️ QUEDAN {$quedan} PRODUCTOS POR PROCESAR\n\n";
     echo "Redirigiendo al siguiente lote...\n";
 
-    if ($offset > 0) echo "</pre>";
+    echo "</pre>"; // Cerrar pre siempre antes del script
 
     ?>
     <script>
