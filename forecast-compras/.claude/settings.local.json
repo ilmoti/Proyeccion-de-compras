@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php -r:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: WordPress WooCommerce Purchase Forecast Plugin\n\nPlugin de proyección de compras para WooCommerce con:\n- Sistema de cálculo de ventas ajustado por stockouts\n- Gestión de órdenes de compra con importación Excel\n- Alertas de pedidos por peso/CBM (aéreo/marítimo)\n- Análisis de stock muerto y productos sin rotación\n- Dashboard con métricas consolidadas\n- Múltiplos de pedido configurables por categoría\n\nFix incluido: Corrección del algoritmo de cálculo de días sin stock\n- Ahora calcula correctamente la intersección de períodos con rangos de análisis\n- Previene que períodos abiertos incorrectamente afecten proyecciones\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(powershell -Command \"Get-ChildItem -Exclude .git,forecast-compras-temp | Move-Item -Destination forecast-compras-temp\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,9 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(php -r:*)",
-      "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(powershell -Command \"Rename-Item forecast-compras-temp forecast-compras\")",
+      "Bash(dir /B)",
+      "Bash(powershell -Command \"Move-Item forecast-compras/.gitignore ./\")",
+      "Bash(powershell -Command \"Move-Item .claude forecast-compras/\")"
     ],
     "deny": [],
     "ask": []
