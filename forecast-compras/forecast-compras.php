@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Forecast de Compras WooCommerce
  * Description: Proyección de compras y ventas con gestión de órdenes en camino
- * Version: 5.4
+ * Version: 5.5
  * Author: WiFix Development
  */
 
