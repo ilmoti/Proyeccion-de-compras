@@ -2,30 +2,12 @@
 /**
  * Importar períodos de stockout desde CSV con SKU incluido - VERSIÓN 2
  * Formato: Producto;SKU;Fecha;Ingreso;Egreso;Precio Venta;Monto Venta;Stock
+ *
+ * EJECUTAR DESDE LA RAÍZ DE WORDPRESS
  */
 
-// Buscar wp-load.php
-$wp_load_locations = [
-    __DIR__ . '/wp-load.php',
-    __DIR__ . '/../wp-load.php',
-    __DIR__ . '/../../wp-load.php',
-    __DIR__ . '/../../../wp-load.php',
-    __DIR__ . '/../../../../wp-load.php',
-];
-
-$wp_loaded = false;
-foreach ($wp_load_locations as $location) {
-    if (file_exists($location)) {
-        require_once $location;
-        $wp_loaded = true;
-        break;
-    }
-}
-
-if (!$wp_loaded) {
-    die("❌ No se puede encontrar wp-load.php");
-}
-
+// Cargar WordPress
+require_once 'wp-load.php';
 global $wpdb;
 
 set_time_limit(120);
@@ -53,12 +35,8 @@ if ($offset == 0) {
 
 echo "========== LOTE {$offset} - " . ($offset + $limit) . " ==========\n\n";
 
-// Buscar archivo CSV con SKU
-$file_movimientos = __DIR__ . '/Movimientos-con-SKU.csv';
-
-if (!file_exists($file_movimientos)) {
-    $file_movimientos = ABSPATH . 'Movimientos-con-SKU.csv';
-}
+// Buscar archivo CSV con SKU en la raíz de WordPress
+$file_movimientos = ABSPATH . 'Movimientos-con-SKU.csv';
 
 if (!file_exists($file_movimientos)) {
     die("❌ No se encuentra el archivo: {$file_movimientos}\n");
